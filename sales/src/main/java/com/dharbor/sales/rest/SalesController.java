@@ -1,5 +1,6 @@
 package com.dharbor.sales.rest;
 
+import com.dharbor.sales.api.response.SaleResponse;
 import com.dharbor.sales.exceptions.SaleNotCompletedException;
 import com.dharbor.sales.model.dto.NewSaleDto;
 import com.dharbor.sales.model.rest.NewSaleRequest;
@@ -20,19 +21,15 @@ public class SalesController {
     }
 
     @PostMapping("/sales/newSale")
-    public ResponseEntity<String> newSale(@RequestBody NewSaleRequest newSaleRequest) {
+    public ResponseEntity<SaleResponse> newSale(@RequestBody NewSaleRequest newSaleRequest) {
 
-        try {
-            NewSaleDto newSaleDto = new NewSaleDto();
-            newSaleDto.setUserId(newSaleRequest.getUserId());
-            newSaleDto.setProductId(newSaleRequest.getProductId());
-            newSaleDto.setQuantity(newSaleRequest.getQuantity());
+        NewSaleDto newSaleDto = new NewSaleDto();
+        newSaleDto.setUserId(newSaleRequest.getUserId());
+        newSaleDto.setProductId(newSaleRequest.getProductId());
+        newSaleDto.setQuantity(newSaleRequest.getQuantity());
 
-            return  ResponseEntity.ok(this.newSalesService.newSale(newSaleDto));
-        } catch (SaleNotCompletedException exception) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(exception.getMessage());
-        }
-
+        SaleResponse response = newSalesService.newSale(newSaleDto);
+        return ResponseEntity.ok(response);
     }
 
 }

@@ -1,5 +1,6 @@
 package com.dharbor.sales.services;
 
+import com.dharbor.sales.api.response.SaleResponse;
 import com.dharbor.sales.clients.NotificationsFeignClient;
 import com.dharbor.sales.clients.RickMortyApiFeignClient;
 import com.dharbor.sales.clients.StockFeignClient;
@@ -11,8 +12,12 @@ import com.dharbor.sales.model.rest.Character;
 import com.dharbor.sales.model.rest.ProductReservationRequest;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class NewSalesService {
@@ -25,29 +30,39 @@ public class NewSalesService {
 
     private final RickMortyApiFeignClient rickMortyApiFeignClient;
 
-    //TODO: Apply circuit breaking and error handling for Wed 4/16/2025
-    public String newSale(NewSaleDto newSaleDto) throws SaleNotCompletedException {
+    public SaleResponse newSale(NewSaleDto newSaleDto) {
+        User user = findUser(newSaleDto.getUserId());
+        String reservationId = reserveProduct(newSaleDto);
+        String notification = sendNotification(newSaleDto.getUserId());
 
-        User user;
+        logCharacterInfo();
 
-        try {
-            user = this.usersFeignClient.findById(newSaleDto.getUserId());
-        } catch (FeignException.NotFound notFoundException) {
-            throw new SaleNotCompletedException("Sale cant be completed", notFoundException);
-        }
-
-        ProductReservationRequest reservationRequest = new ProductReservationRequest();
-        reservationRequest.setQuantity(newSaleDto.getQuantity());
-        reservationRequest.setProductId(newSaleDto.getProductId());
-        String reservationId = this.stockFeignClient.reserve(reservationRequest);
-
-        String notification = this.notificationsFeignClient.sendNotification(newSaleDto.getUserId().toString());
-
-        Character character = this.rickMortyApiFeignClient.findById(2);
-
-        System.out.println(character.getName()+" "+character.getSpecies()+" "+character.getStatus());
-
-        return "New Sale for " + user.getName() + " with reservation id " + reservationId + " and user has been notified " + notification;
+        return new SaleResponse(user.getName(), reservationId, notification);
     }
 
+    private User findUser(UUID userId) {
+        try {
+            return usersFeignClient.findById(userId);
+        } catch (FeignException.NotFound e) {
+            throw new SaleNotCompletedException("User not found", e);
+        } catch (FeignException e) {
+            throw new SaleNotCompletedException("Failed to fetch user", e);
+        }
+    }
+
+    private String reserveProduct(NewSaleDto dto) {
+        ProductReservationRequest request = new ProductReservationRequest();
+        request.setProductId(dto.getProductId());
+        request.setQuantity(dto.getQuantity());
+        return stockFeignClient.reserve(request);
+    }
+
+    private String sendNotification(UUID userId) {
+        return notificationsFeignClient.sendNotification(userId.toString());
+    }
+
+    private void logCharacterInfo() {
+        Character character = rickMortyApiFeignClient.findById(2);
+        log.info("Character: {} - {} - {}", character.getName(), character.getSpecies(), character.getStatus());
+    }
 }
