@@ -11,6 +11,7 @@ import com.dharbor.sales.model.dto.NewSaleDto;
 import com.dharbor.sales.model.rest.Character;
 import com.dharbor.sales.model.rest.ProductReservationRequest;
 import feign.FeignException;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -40,6 +41,7 @@ public class NewSalesService {
         return new SaleResponse(user.getName(), reservationId, notification);
     }
 
+    @CircuitBreaker(name = "userService", fallbackMethod = "userFallback")
     private User findUser(UUID userId) {
         try {
             return usersFeignClient.findById(userId);
@@ -50,6 +52,7 @@ public class NewSalesService {
         }
     }
 
+    @CircuitBreaker(name = "stockService", fallbackMethod = "stockFallback")
     private String reserveProduct(NewSaleDto dto) {
         ProductReservationRequest request = new ProductReservationRequest();
         request.setProductId(dto.getProductId());
